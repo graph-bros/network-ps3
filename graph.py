@@ -4,9 +4,10 @@ import networkx as nx
 
 class Graph:
 
-    def __init__(self, edge_list_path, node_property_list):
+    def __init__(self, edge_list_path, node_property_list, delimiter='\t'):
         self._edge_list_path = edge_list_path
         self._node_property_list = node_property_list
+        self._delimiter = delimiter
         self.graph = None
         self._attributes = defaultdict(set)
         self._edges_by_label = defaultdict()
@@ -19,15 +20,15 @@ class Graph:
         """
         self.graph = nx.read_edgelist(self._edge_list_path)
 
-    def _set_attributes(self, delimiter=' '):
+    def _set_attributes(self):
         """ read node attributes from file and set to graph
         """
         with open(self._node_property_list, 'rb') as csvfile:
-            property_reader = csv.reader(csvfile, delimiter=delimiter)
+            property_reader = csv.reader(csvfile, delimiter=self._delimiter)
             attr_types = property_reader.next()
             for i, attr_row in enumerate(property_reader):
                 for j, attr_type in enumerate(attr_types):
-                    self.graph.add_node(str(i), {attr_type: attr_row[j]})
+                    self.graph.add_node(str(i+1), {attr_type: attr_row[j]})
                     self._attributes[attr_type].add(attr_row[j])
 
     def _set_edges_by_label(self, attr_type):
@@ -41,8 +42,13 @@ class Graph:
         self._edges_by_label[attr_type] = dict(edges_by_label)
 
     def _euv(self, attr_type, u, v):
-        return float(self._edges_by_label[attr_type][u, v]) / \
-               float(self.graph.number_of_edges())
+        try:
+            euv = float(self._edges_by_label[attr_type][u, v]) / \
+                  float(self.graph.number_of_edges())
+        except:
+            euv = 0
+
+        return euv
 
     def _au(self, attr_type, u):
         sum = float(0)
@@ -66,8 +72,11 @@ class Graph:
                     sum += val_vu
             except:
                 sum += 0
-        val_uu = float(self._edges_by_label[attr_type][u, u]) / \
-                 float(self.graph.number_of_edges())
+        try:
+            val_uu = float(self._edges_by_label[attr_type][u, u]) / \
+                     float(self.graph.number_of_edges())
+        except:
+            val_uu = 0
         sum -= val_uu
 
         return sum
@@ -76,7 +85,10 @@ class Graph:
         euv = self._euv(attr_type, u, v)
         au = self._au(attr_type, u)
 
-        return euv - au**2
+        if euv == 0:
+            return 0
+        else:
+            return euv - au**2
 
     def modularity(self, attr_type):
         """ calc graph modularity Q
