@@ -1,5 +1,8 @@
 from collections import defaultdict
 import csv
+from os import listdir
+from os.path import isfile, join
+
 import networkx as nx
 
 class Graph:
@@ -102,8 +105,52 @@ class Graph:
         return q
 
 
+def files(path):
+    only_files = [f for f in listdir(path) if isfile(join(path, f))]
+    edge_lists = [f for f in only_files if not f.endswith('_attr.txt')]
+    attr_lists = [f for f in only_files if f.endswith('_attr.txt')]
+
+    #FIXME
+    return [f.replace("_attr.txt","") for f in attr_lists]
+
+def job(name):
+    print ">>>Begin:", name
+    try:
+        e = 'facebook100txt/' + name + '.txt'
+        a = 'facebook100txt/' + name + '_attr.txt'
+        g = Graph(e, a)
+        attrs = ['status', 'major', 'gender']
+        with open('result/'+name+'_mod.txt', "w") as f:
+            writer = csv.writer(f, delimiter=',')
+            for attr in attrs:
+                output = attr, g.modularity(attr)
+                writer.writerow(output)
+        print "<<<Done", name
+    except e:
+        print "<<<DERR:", name
+
+
 if __name__=="__main__":
-    edge_list_path = "sample/two_tri_edge_list.txt"
-    node_properties_path = "sample/two_tri_node_properties.txt"
+    """
+    edge_list_path = "sample/Cal65.txt"
+    node_properties_path = "sample/Cal65_attr.txt"
     g = Graph(edge_list_path, node_properties_path)
-    print g.modularity('color')
+    for key in g._attributes.keys():
+        print key, g.modularity(key)
+    """
+    from multiprocessing import Pool
+    from os import mkdir
+    from os.path import isdir
+    from shutil import rmtree
+
+
+    p = Pool(4)
+    root_path = 'facebook100txt'
+    result_path = 'result'
+
+    if isdir(result_path):
+        rmtree(result_path)
+    mkdir(result_path)
+
+    pathes = files(root_path)
+    p.map(job, pathes)
